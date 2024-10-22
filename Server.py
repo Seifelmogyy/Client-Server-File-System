@@ -70,34 +70,77 @@ class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()  # Handle other GET requests as needed
 
     def do_POST(self):
-        # Parse the form data posted
-        ctype, pdict = cgi.parse_header(self.headers.get('Content-Type'))
-        if ctype == 'multipart/form-data':
-            pdict['boundary'] = bytes(pdict['boundary'], "utf-8")
-            fields = cgi.parse_multipart(self.rfile, pdict)
-            file_data = fields.get('file')  # The file field in the form
-            file_name = fields.get('filename')[0]  # Extract filename
+        if self.path == "/login":
+            # Handle login
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            credentials = json.loads(post_data)
 
-            if file_data and file_name:
-                file_name = file_name.decode("utf-8")  # Ensure the filename is a string
-                with open(file_name, 'wb') as output_file:
-                    output_file.write(file_data[0])  # Write the file to the server
+            username = credentials.get('username')
+            password = credentials.get('password')
 
+            authenticated, user_id = verify_credentials(username, password)
+
+            if authenticated:
                 self.send_response(200)
+                self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(b"File uploaded successfully!")
+                self.wfile.write(json.dumps({"status": "success", "user_id": user_id}).encode())
             else:
-                self.send_response(400)
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(b"Failed to upload the file.")
+                self.wfile.write(json.dumps({"status": "failed"}).encode())
 
-        else:
-            self.send_response(400)
+        elif self.path == "/upload":
+            # Handle file upload
+            user_id = int(self.headers.get('User-ID'))
+
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+
+            # Save the uploaded file in the user-specific folder
+            user_dir = f"files/{user_id}"
+            if not os.path.exists(user_dir):
+                os.makedirs(user_dir)
+
+            filename = "uploaded_file"  # Placeholder name
+            file_path = os.path.join(user_dir, filename)
+
+            with open(file_path, 'wb') as output_file:
+                output_file.write(post_data)
+
+            # Record the file in the database
+            connection = mysql.connector.connect(**db_config)
+            cursor = connection.cursor()
+            cursor.execute("INSERT INTO user_files (user_id, filename) VALUES (%s, %s)", (user_id, filename))
+            connection.commit()
+            cursor.close()
+            connection.close()
+
+            self.send_response(200)
             self.end_headers()
-            self.wfile.write(b"Only multipart form data is supported.")
-    def end_headers(self):
-        self.send_header('Access-Control-Allow-Origin', '*')
-        super().end_headers()
+            self.wfile.write(b"File uploaded successfully!")
+
+        elif self.path == "/download":
+            # Handle file download
+            user_id = int(self.headers.get('User-ID'))
+            filename = self.headers.get('Filename')
+
+            user_dir = f"files/{user_id}"
+            file_path = os.path.join(user_dir, filename)
+
+            if os.path.exists(file_path):
+                self.send_response(200)
+                self.send_header("Content-Type", "application/octet-stream")
+                self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+                self.end_headers()
+                with open(file_path, 'rb') as file:
+                    self.wfile.write(file.read())
+            else:
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(b"File not found")
 
 
 os.chdir('/Users/seifelmougy/Documents/Year 4/Semester 1/Practical cryptograp/File Server')  # Replace with your directory path
