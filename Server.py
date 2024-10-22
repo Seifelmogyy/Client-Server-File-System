@@ -5,6 +5,7 @@ import ssl
 import cgi
 
 
+
 PORT = 8000  # Feel free to use a different port
 
 
@@ -43,7 +44,7 @@ class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
 
-os.chdir('/Users/seifelmougy/Documents/Year 4/Semester 1/Practical cryptograp')  # Replace with your directory path
+os.chdir('/Users/seifelmougy/Documents/Year 4/Semester 1/Practical cryptograp/File Server')  # Replace with your directory path
 
 
 handler_object = MyHttpRequestHandler
