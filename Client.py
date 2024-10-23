@@ -1,7 +1,26 @@
 import requests
 import json
+import Server.py
 
 BASE_URL = "https://localhost:8000"
+
+def signup():
+    """Handles user signup."""
+    print("Create a new account:")
+    username = input("Enter new username: ")
+    password = input("Enter new password: ")
+
+    response = requests.post(
+        f"{SERVER_URL}/signup",
+        json={"username": username, "password": password}
+    )
+
+    if response.status_code == 201:
+        print("Account created successfully!")
+    else:
+        print("Failed to create an account.")
+        print(f"Server response: {response.json()}")
+
 
 def login(username, password):
     login_url = f"{BASE_URL}/login"
@@ -42,34 +61,44 @@ def download_file(user_id, filename, save_path):
     else:
         print("File download failed:", response.text)
 
-def show_menu():
-    print("\nChoose an option:")
-    print("1. Upload a file")
-    print("2. Download a file")
-    print("3. Exit")
-    return input("Enter your choice: ")
+
 
 def main():
-    username = input("Enter your username: ")
-    password = input("Enter your password: ")
+    print("Welcome to the Client-Server File System")
     
-    user_id = login(username, password)
-    
-    if user_id:
-        while True:
-            choice = show_menu()
-            if choice == '1':
-                file_path = input("Enter the path of the file to upload: ")
-                upload_file(user_id, file_path)
-            elif choice == '2':
-                filename = input("Enter the name of the file to download: ")
-                save_path = input("Enter the path to save the downloaded file: ")
-                download_file(user_id, filename, save_path)
-            elif choice == '3':
-                print("Exiting the program.")
+    # Initial login/signup menu
+    while True:
+        print("1. Login")
+        print("2. Sign up")
+        choice = input("Choose an option (1 or 2): ")
+
+        if choice == "1":
+            user_id = login()
+            if user_id:
                 break
-            else:
-                print("Invalid choice. Please try again.")
+        elif choice == "2":
+            signup()
+        else:
+            print("Invalid choice. Please enter 1 or 2.")
+
+    # Main menu after successful login
+    while True:
+        print("\nMain Menu:")
+        print("1. Upload file")
+        print("2. Download file")
+        print("3. Exit")
+        
+        option = input("Choose an option: ")
+
+        if option == "1":
+            upload_file(user_id)
+        elif option == "2":
+            download_file(user_id)
+        elif option == "3":
+            print("Goodbye!")
+            break
+        else:
+            print("Invalid option. Please choose 1, 2, or 3.")
 
 if __name__ == "__main__":
     main()
