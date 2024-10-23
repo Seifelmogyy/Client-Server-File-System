@@ -17,6 +17,40 @@ db_config = {
     'database': 'file_server'
 }
 
+def register_user(username, password):
+    # Hash the password
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+
+    # Define the folder path for this user
+    folder_path = f"/path/to/storage/{username}"
+
+    try:
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor()
+
+        # Create the user's folder
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+
+        # Insert the user into the database
+        insert_query = """
+        INSERT INTO users (username, password_hash, folder_path)
+        VALUES (%s, %s, %s)
+        """
+        cursor.execute(insert_query, (username, hashed_password.decode('utf-8'), folder_path))
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        print("User registered successfully!")
+    except Exception as e:
+        print("Error registering user:", e)
+
+# Register a new user
+register_user("newuser", "securepassword")
+
+
+
 def verify_credentials(username, password):
     """Check if the username and password match a record in the database."""
     try:
@@ -91,6 +125,35 @@ class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps({"status": "failed"}).encode())
+
+        elif self.path == "/signup":
+            # Handle signup
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            new_user = json.loads(post_data)
+
+            username = new_user.get('username')
+            password = new_user.get('password')
+
+            # Check if username and password are provided
+            if not username or not password:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "failed", "message": "Username and password required"}).encode())
+                return
+
+            # Create a new user
+            if register_user(username, password):
+                self.send_response(201)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success"}).encode())
+            else:
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "failed", "message": "Failed to create user"}).encode())
 
         elif self.path == "/upload":
             # Handle file upload

@@ -11,7 +11,7 @@ def signup():
     password = input("Enter new password: ")
 
     response = requests.post(
-        f"{SERVER_URL}/signup",
+        f"{BASE_URL}/signup",
         json={"username": username, "password": password}
     )
 
