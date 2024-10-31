@@ -1,6 +1,5 @@
 import requests
 import json
-import Server.py
 
 BASE_URL = "https://localhost:8000"
 
@@ -12,7 +11,9 @@ def signup():
 
     response = requests.post(
         f"{BASE_URL}/signup",
-        json={"username": username, "password": password}
+        json={"username": username, "password": password},  
+        verify='/Users/seifelmougy/Documents/GitHub/Client-Server-File-System/mykey.key',
+        cert=('/Users/seifelmougy/Documents/GitHub/Client-Server-File-System/mykey.key','/Users/seifelmougy/Documents/GitHub/Client-Server-File-System/mycert.crt')
     )
 
     if response.status_code == 201:
@@ -25,7 +26,7 @@ def signup():
 def login(username, password):
     login_url = f"{BASE_URL}/login"
     credentials = {"username": username, "password": password}
-    response = requests.post(login_url, json=credentials, verify=False)  # Disable SSL verification for testing
+    response = requests.post(login_url, json=credentials, verify="/Users/seifelmougy/Documents/GitHub/Client-Server-File-System/mykey.key")  # Disable SSL verification for testing
 
     if response.status_code == 200:
         data = response.json()
@@ -42,7 +43,7 @@ def upload_file(user_id, file_path):
     upload_url = f"{BASE_URL}/upload"
     headers = {'User-ID': str(user_id)}
     with open(file_path, 'rb') as file:
-        response = requests.post(upload_url, data=file, headers=headers, verify=False)
+        response = requests.post(upload_url, data=file, headers=headers, verify="/Users/seifelmougy/Documents/GitHub/Client-Server-File-System/mykey.key")
 
     if response.status_code == 200:
         print("File uploaded successfully!")
@@ -52,7 +53,7 @@ def upload_file(user_id, file_path):
 def download_file(user_id, filename, save_path):
     download_url = f"{BASE_URL}/download"
     headers = {'User-ID': str(user_id), 'Filename': filename}
-    response = requests.get(download_url, headers=headers, verify=False)
+    response = requests.get(download_url, headers=headers, verify="/Users/seifelmougy/Documents/GitHub/Client-Server-File-System/mykey.key")
 
     if response.status_code == 200:
         with open(save_path, 'wb') as file:

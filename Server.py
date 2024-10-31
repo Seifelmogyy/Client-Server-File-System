@@ -3,7 +3,7 @@ import socketserver
 import os
 import ssl
 import cgi
-import _mysql_connector
+from mysql import connector
 import bcrypt
 import json
 
@@ -25,7 +25,7 @@ def register_user(username, password):
     folder_path = f"/path/to/storage/{username}"
 
     try:
-        connection = mysql.connector.connect(**db_config)
+        connection = connector.connect(**db_config)
         cursor = connection.cursor()
 
         # Create the user's folder
@@ -54,7 +54,7 @@ register_user("newuser", "securepassword")
 def verify_credentials(username, password):
     """Check if the username and password match a record in the database."""
     try:
-        connection = mysql.connector.connect(**db_config)
+        connection = connector.connect(**db_config)
         cursor = connection.cursor()
 
         # Query to retrieve password hash for the given username
@@ -75,7 +75,7 @@ def verify_credentials(username, password):
             return True, user_id
         return False, None
 
-    except mysql.connector.Error as err:
+    except connector.Error as err:
         print(f"Error: {err}")
         return False, None
 
@@ -86,7 +86,7 @@ class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
             # Handle listing files for a user
             user_id = int(self.headers.get('User-ID'))
 
-            connection = mysql.connector.connect(**db_config)
+            connection = connector.connect(**db_config)
             cursor = connection.cursor()
             query = "SELECT filename FROM user_files WHERE user_id = %s"
             cursor.execute(query, (user_id,))
@@ -174,7 +174,7 @@ class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
                 output_file.write(post_data)
 
             # Record the file in the database
-            connection = mysql.connector.connect(**db_config)
+            connection = connector.connect(**db_config)
             cursor = connection.cursor()
             cursor.execute("INSERT INTO user_files (user_id, filename) VALUES (%s, %s)", (user_id, filename))
             connection.commit()
@@ -213,7 +213,7 @@ handler_object = MyHttpRequestHandler
 
 
 with socketserver.TCPServer(("", PORT), handler_object) as httpd:
-    httpd.socket = ssl.wrap_socket(httpd.socket, keyfile="/Users/seifelmougy/Documents/GitHub/Client-Server-File-System/server.pem", certfile="/Users/seifelmougy/Documents/GitHub/Client-Server-File-System/server.pem", server_side=True)
+    httpd.socket = ssl.wrap_socket(httpd.socket, keyfile="/Users/seifelmougy/Documents/GitHub/Client-Server-File-System/mykey.key", certfile="/Users/seifelmougy/Documents/GitHub/Client-Server-File-System/mycert.crt", server_side=True)
 
     print(f"Serving at port {PORT}")
     print("Server is running. Press Ctrl+C to stop the server.")
