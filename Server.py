@@ -1,5 +1,6 @@
 import socket
 import mysql.connector
+import bcrypt
 
 
 
@@ -10,18 +11,56 @@ def main():
     db = mysql.connector.connect(user='root',password='root1234',host='localhost', database='file_server')
 
     cursor = db.cursor()
+
+    def authenticate_user(username, password):
+        """Authenticate user by comparing entered password with stored hash."""
+        query = "SELECT password_hash FROM users WHERE username = %s"
+        cursor.execute(query, (username,))
+        result = cursor.fetchone()
+    
+        if result:
+            stored_password = result[0].encode('utf-8')
+            if bcrypt.checkpw(password.encode('utf-8'), stored_password):
+                return True
+        return False
+
+    def register_user(username, password):
+        """Register a new user with a hashed password."""
+        query = "SELECT username FROM users WHERE username = %s"
+        cursor.execute(query, (username,))
+        if cursor.fetchone():
+            return "User already exists"
+
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        query = "INSERT INTO users (username, password_hash) VALUES (%s, %s)"
+        cursor.execute(query, (username, hashed_password.decode('utf-8')))
+        db.commit()
+        return "Registration successful"
+    
   
     # Server Socket Initialization
     server_socket=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind(('127.0.0.1',12345))
     server_socket.listen(5)
     print ("server waiting for connection")
-    
+
     client_socket,addr=server_socket.accept()
     print ("client connected from", addr)
 
+    # Receive action and credentials from the client
+    acc_data = client_socket.recv(1024).decode("utf-8")
+    choice, username, password = acc_data.split(":")
 
+    if choice == '2':
+        if authenticate_user(username, password):
+            client_socket.send("Authentication successful".encode("utf-8"))
+        else:
+            client_socket.send("Authentication failed".encode("utf-8"))
+    elif choice == '1':
+        response = register_user(username, password)
+        client_socket.send(response.encode("utf-8"))
 
+    # File Transfer
     filename = client_socket.recv(1024).decode("utf-8")
     print("Filename received.")
     file = open(filename, "w")

@@ -1,24 +1,13 @@
 import socket
 
-def sign_up():
-    print("\n--- Sign Up ---")
-    username = input("Enter a new username: ")
-    password = input("Enter a new password: ")
-    credentials = f"{username}:{password}"
-    
-    print("Sign-up successful! You can now log in.\n")
-
-def login():
-    print("\n--- Login ---")
-    username = input("Enter your username: ")
-    password = input("Enter your password: ")
-    credentials = f"{username}:{password}"
-    print("Login successful! Welcome back, {}.\n".format(username))
+#Client Socket Server
+client_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+client_socket.connect(('127.0.0.1',12345))
 
  
 def main():
-        client_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-        client_socket.connect(('127.0.0.1',12345))
+
+        authenticated = False  # Track if the user has successfully authenticated
 
         #Authentication
         while True:
@@ -27,14 +16,43 @@ def main():
             print("3. Exit")
             choice = input("Choose an option: ")
             if choice == "1":
-                sign_up()
-                client_socket.send(file_name.encode("utf-8") )
+                print("\n--- Sign Up ---")
+                username = input("Enter a new username: ")
+                password = input("Enter a new password: ")    
+                print("Sign-up successful! You can now log in.\n")
+
+                # Send action and credentials to the server
+                credentials = f"{choice}:{username}:{password}"
+                client_socket.send(credentials.encode("utf-8"))
+
+                # Receive and print response from server
+                response = client_socket.recv(1024).decode("utf-8")
+                print(f"Server: {response}")
+
             elif choice == "2":
-                login()
+                print("\n--- Login ---")
+                username = input("Enter your username: ")
+                password = input("Enter your password: ")
+
+                # Send action and credentials to the server
+                credentials = f"{choice}:{username}:{password}"
+                client_socket.send(credentials.encode("utf-8"))
+
+                # Receive and print response from server
+                response = client_socket.recv(1024).decode("utf-8")
+                if "authentication successful" in response.lower():  # Check for success message from server
+                    print(f"Login successful! Welcome back, {username}.\n")
+                    authenticated = True  # Set flag to indicate successful login
+                    break  # Exit loop after successful login
+                else:
+                    print(f"Login failed: {response}")
+
             elif choice == "3":
                 print("Exiting the program.")
+                client_socket.close()
                 break
-
+        
+        if authenticated:
             file_name = input("Enter file name")
             file_address=input("enter file path: ")
             file = open(file_address, "r")
