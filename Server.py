@@ -1,9 +1,7 @@
 import socket
 import mysql.connector
 import bcrypt
-
-
-
+import ssl
 
 def main():
 
@@ -12,6 +10,7 @@ def main():
 
     cursor = db.cursor()
 
+    # Authenticate and Register Functions
     def authenticate_user(username, password):
         """Authenticate user by comparing entered password with stored hash."""
         query = "SELECT password_hash FROM users WHERE username = %s"
@@ -38,43 +37,46 @@ def main():
         return "Registration successful"
     
   
-    # Server Socket Initialization
+    # Server Socket Initialization and SSL
+    context = ssl._create_unverified_context(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain("mycert.crt","mykey.key")
     server_socket=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind(('127.0.0.1',12345))
-    server_socket.listen(5)
-    print ("server waiting for connection")
+    with context.wrap_socket(server_socket,server_side=True) as sssock:
+        sssock.bind(('127.0.0.1',12345))
+        sssock.listen(5)
+        print ("server waiting for connection")
 
-    client_socket,addr=server_socket.accept()
-    print ("client connected from", addr)
+        client_socket,addr=sssock.accept()
+        print ("client connected from", addr)
 
-    # Receive action and credentials from the client
-    acc_data = client_socket.recv(1024).decode("utf-8")
-    choice, username, password = acc_data.split(":")
+        # Receive action and credentials from the client
+        acc_data = client_socket.recv(1024).decode("utf-8")
+        choice, username, password = acc_data.split(":")
 
-    if choice == '2':
-        if authenticate_user(username, password):
-            client_socket.send("Authentication successful".encode("utf-8"))
-        else:
-            client_socket.send("Authentication failed".encode("utf-8"))
-    elif choice == '1':
-        response = register_user(username, password)
-        client_socket.send(response.encode("utf-8"))
+        if choice == '2':
+            if authenticate_user(username, password):
+                client_socket.send("Authentication successful".encode("utf-8"))
+            else:
+                client_socket.send("Authentication failed".encode("utf-8"))
+        elif choice == '1':
+            response = register_user(username, password)
+            client_socket.send(response.encode("utf-8"))
 
-    # File Transfer
-    filename = client_socket.recv(1024).decode("utf-8")
-    print("Filename received.")
-    file = open(filename, "w")
-    client_socket.send("Filename received.".encode("utf-8"))
+        # File Transfer
+        filename = client_socket.recv(1024).decode("utf-8")
+        print("Filename received.")
+        file = open("/Users/seifelmougy/Documents/file_server_storage" + filename, "w")
+        client_socket.send("Filename received.".encode("utf-8"))
 
 
-    data = client_socket.recv(1024).decode("utf-8")
-    print("File Data received")
-    file.write(data)
-    client_socket.send("File data received.".encode("utf-8"))
+        data = client_socket.recv(1024).decode("utf-8")
+        print("File Data received")
+        file.write(data)
+        client_socket.send("File data received.".encode("utf-8"))
 
-    file.close()
-    client_socket.close()
-    server_socket.close()
+        file.close()
+        client_socket.close()
+        server_socket.close()
 
 
 

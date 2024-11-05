@@ -1,8 +1,12 @@
 import socket
+import ssl
 
 #Client Socket Server
+context = ssl._create_unverified_context(ssl.PROTOCOL_TLS_CLIENT)
+context.load_verify_locations("mycert.crt")
 client_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-client_socket.connect(('127.0.0.1',12345))
+ssock = context.wrap_socket(client_socket) 
+ssock.connect(('127.0.0.1',12345))
 
  
 def main():
@@ -23,10 +27,10 @@ def main():
 
                 # Send action and credentials to the server
                 credentials = f"{choice}:{username}:{password}"
-                client_socket.send(credentials.encode("utf-8"))
+                ssock.send(credentials.encode("utf-8"))
 
                 # Receive and print response from server
-                response = client_socket.recv(1024).decode("utf-8")
+                response = ssock.recv(1024).decode("utf-8")
                 print(f"Server: {response}")
 
             elif choice == "2":
@@ -36,10 +40,10 @@ def main():
 
                 # Send action and credentials to the server
                 credentials = f"{choice}:{username}:{password}"
-                client_socket.send(credentials.encode("utf-8"))
+                ssock.send(credentials.encode("utf-8"))
 
                 # Receive and print response from server
-                response = client_socket.recv(1024).decode("utf-8")
+                response = ssock.recv(1024).decode("utf-8")
                 if "authentication successful" in response.lower():  # Check for success message from server
                     print(f"Login successful! Welcome back, {username}.\n")
                     authenticated = True  # Set flag to indicate successful login
@@ -49,26 +53,26 @@ def main():
 
             elif choice == "3":
                 print("Exiting the program.")
-                client_socket.close()
+                ssock.close()
                 break
         
         if authenticated:
-            file_name = input("Enter file name")
+            file_name = input("Enter file name: ")
             file_address=input("enter file path: ")
             file = open(file_address, "r")
 
             data = file.read()
 
-            client_socket.send(file_name.encode("utf-8") )
-            msg = client_socket.recv(1024).decode("utf-8")
+            ssock.send(file_name.encode("utf-8") )
+            msg = ssock.recv(1024).decode("utf-8")
             print(f"Server: {msg}")
 
-            client_socket.send(data.encode("utf-8"))
-            msg = client_socket.recv(1024).decode("utf-8")
+            ssock.send(data.encode("utf-8"))
+            msg = ssock.recv(1024).decode("utf-8")
             print(f"Server: {msg}")
 
             file.close()
-            client_socket.close()
+            ssock.close()
 
 if __name__ == "__main__":
     main()
