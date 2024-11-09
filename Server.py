@@ -76,10 +76,12 @@ def main():
             client_socket.send(response.encode("utf-8"))
 
         # File Transfer
-        file_data = client_socket.recv(1024).decode("utf-8")
-        choicee, file_name, data = file_data.split(":")
+        choicee = client_socket.recv(1024).decode("utf-8")
+
 
         if choicee == '1':
+            file_data = client_socket.recv(1024).decode("utf-8")
+            file_name, data = file_data.split(":")
 
             print("Filename received.")
             file = open(file_name, "w")
@@ -91,6 +93,12 @@ def main():
             client_socket.send("File data received.".encode("utf-8"))
 
             file.close()
+
+        if choicee == '2':
+
+            List = str(os.listdir())
+            client_socket.send(List.encode("utf-8"))
+
 
         if choicee == '3':
             client_socket.close()

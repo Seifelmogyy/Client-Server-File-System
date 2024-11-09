@@ -62,6 +62,8 @@ def main():
                 print("2. List Files")
                 print("3. Exit")
                 choicee = input("Choose an option: ")
+                ssock.send(choicee.encode("utf-8") )
+
                 if choicee == "1":
                     file_name = input("Enter file name: ")
                     file_address=input("enter file path: ")
@@ -69,7 +71,7 @@ def main():
 
                     data = file.read()
 
-                    file = f"{choicee}:{file_name}:{data}"
+                    file = f"{file_name}:{data}"
 
                     ssock.send(file.encode("utf-8") )
                     msg = ssock.recv(1024).decode("utf-8")
@@ -80,6 +82,13 @@ def main():
 
                     #file.close()
                     #ssock.close()
+
+                elif choicee == "2":
+                    File_list = ssock.recv(1024).decode("utf-8")
+                    print(f"The following files are available in your folder: {File_list}")
+
+
+
                 elif choicee == "3":
                     print("Exiting the program.")
                     ssock.close()
