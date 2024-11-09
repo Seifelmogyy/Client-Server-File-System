@@ -57,22 +57,33 @@ def main():
                 break
         
         if authenticated:
-            file_name = input("Enter file name: ")
-            file_address=input("enter file path: ")
-            file = open(file_address, "r")
+            while True:
+                print("1. Upload File")
+                print("2. List Files")
+                print("3. Exit")
+                choicee = input("Choose an option: ")
+                if choicee == "1":
+                    file_name = input("Enter file name: ")
+                    file_address=input("enter file path: ")
+                    file = open(file_address, "r")
 
-            data = file.read()
+                    data = file.read()
 
-            ssock.send(file_name.encode("utf-8") )
-            msg = ssock.recv(1024).decode("utf-8")
-            print(f"Server: {msg}")
+                    file = f"{choicee}:{file_name}:{data}"
 
-            ssock.send(data.encode("utf-8"))
-            msg = ssock.recv(1024).decode("utf-8")
-            print(f"Server: {msg}")
+                    ssock.send(file.encode("utf-8") )
+                    msg = ssock.recv(1024).decode("utf-8")
+                    print(f"Server: {msg}")
 
-            file.close()
-            ssock.close()
+                    msg = ssock.recv(1024).decode("utf-8")
+                    print(f"Server: {msg}")
+
+                    #file.close()
+                    #ssock.close()
+                elif choicee == "3":
+                    print("Exiting the program.")
+                    ssock.close()
+                    break
 
 if __name__ == "__main__":
     main()

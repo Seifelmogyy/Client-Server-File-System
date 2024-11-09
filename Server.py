@@ -2,6 +2,7 @@ import socket
 import mysql.connector
 import bcrypt
 import ssl
+import os
 
 def main():
 
@@ -12,6 +13,9 @@ def main():
 
     # Authenticate and Register Functions
     def authenticate_user(username, password):
+
+        os.chdir(f"/Users/seifelmougy/Documents/file_server_storage/{username}")
+
         """Authenticate user by comparing entered password with stored hash."""
         query = "SELECT password_hash FROM users WHERE username = %s"
         cursor.execute(query, (username,))
@@ -24,6 +28,15 @@ def main():
         return False
 
     def register_user(username, password):
+
+        nested_directory = f"/Users/seifelmougy/Documents/file_server_storage/{username}"
+
+        try:
+            os.makedirs(nested_directory)
+            print(f"Nested directories '{nested_directory}' created successfully.")
+        except FileExistsError:
+            print(f"One or more directories in '{nested_directory}' already exist.")
+
         """Register a new user with a hashed password."""
         query = "SELECT username FROM users WHERE username = %s"
         cursor.execute(query, (username,))
@@ -63,18 +76,27 @@ def main():
             client_socket.send(response.encode("utf-8"))
 
         # File Transfer
-        filename = client_socket.recv(1024).decode("utf-8")
-        print("Filename received.")
-        file = open("/Users/seifelmougy/Documents/file_server_storage" + filename, "w")
-        client_socket.send("Filename received.".encode("utf-8"))
+        file_data = client_socket.recv(1024).decode("utf-8")
+        choicee, file_name, data = file_data.split(":")
+
+        if choicee == '1':
+
+            print("Filename received.")
+            file = open(file_name, "w")
+            client_socket.send("Filename received.".encode("utf-8"))
 
 
-        data = client_socket.recv(1024).decode("utf-8")
-        print("File Data received")
-        file.write(data)
-        client_socket.send("File data received.".encode("utf-8"))
+            print("File Data received")
+            file.write(data)
+            client_socket.send("File data received.".encode("utf-8"))
 
-        file.close()
+            file.close()
+
+        if choicee == '3':
+            client_socket.close()
+            server_socket.close()
+
+
         client_socket.close()
         server_socket.close()
 
