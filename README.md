@@ -16,7 +16,7 @@ This application incorporates the following security measures:
 - **SSL Encryption**: All communication between the client and server is encrypted using SSL (Secure Socket Layer) to prevent eavesdropping and man-in-the-middle attacks.
 - **Hashed Passwords**: User passwords are securely stored using a hashing algorithm (e.g., bcrypt or SHA-256), ensuring that passwords are never stored in plain text.
 - **Diffie-Hellman Key Exchange**: The Diffie-Hellman protocol is used to securely exchange keys for AES 256-bit encryption, which is then used for encrypting and decrypting uploaded files, ensuring confidentiality and integrity.
-- **AES 256-bit File Encryption**: Files are encrypted using AES (Advanced Encryption Standard) with a 256-bit key, providing strong encryption to protect files during storage and transfer.
+
 
 
 ## Installation
