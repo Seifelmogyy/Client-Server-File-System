@@ -3,6 +3,9 @@ import mysql.connector
 import bcrypt
 import ssl
 import os
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
 
 def main():
 
@@ -10,6 +13,23 @@ def main():
     db = mysql.connector.connect(user='root',password='root1234',host='localhost', database='file_server')
 
     cursor = db.cursor()
+
+    def get_public_key_from_db(username):
+        """
+        Retrieve the public key for a user from the MySQL database.
+        """
+        # Query for the public key
+        query = "SELECT public_key FROM users WHERE username = %s"
+        cursor.execute(query, (username,))
+        result = cursor.fetchone()
+
+        if result:
+            public_key_pem = result[0]  # Public key in PEM format
+            # Deserialize the public key
+            public_key = serialization.load_pem_public_key(public_key_pem.encode('utf-8'))
+            return public_key
+        else:
+            raise ValueError("Public key not found for user.")
 
     # Authenticate and Register Functions
     def authenticate_user(username, password):
@@ -26,7 +46,7 @@ def main():
             if bcrypt.checkpw(password.encode('utf-8'), stored_password):
                 return True
         return False
-
+    
     def register_user(username, password):
 
         nested_directory = f"/Users/seifelmougy/Documents/file_server_storage/{username}"
@@ -49,6 +69,19 @@ def main():
         db.commit()
         return "Registration successful"
     
+    def save_public_key(username, public_key_data):
+        try:
+            # Convert the public key to string (PEM format)
+            public_key_str = public_key_data.decode("utf-8")
+
+            # Insert the public key into the database
+            query = "UPDATE users SET public_key = %s WHERE username = %s"
+            cursor.execute(query, (public_key_str, username))
+            db.commit()
+            print(f"Public key for {username} saved to the database.")
+        except Exception as e:
+            print(f"Error saving public key: {e}")
+    
   
     # Server Socket Initialization and SSL
     context = ssl._create_unverified_context(ssl.PROTOCOL_TLS_SERVER)
@@ -69,27 +102,46 @@ def main():
         if choice == '2':
             if authenticate_user(username, password):
                 client_socket.send("Authentication successful".encode("utf-8"))
+
             else:
                 client_socket.send("Authentication failed".encode("utf-8"))
         elif choice == '1':
             response = register_user(username, password)
             client_socket.send(response.encode("utf-8"))
+            public_key_data = client_socket.recv(2048)  # Adjust size as needed
+            public_key = serialization.load_pem_public_key(public_key_data)
+            print(public_key_data)
+            print("Public key received and loaded.")
+            save_public_key(username, public_key_data)
 
         # File Transfer
         choicee = client_socket.recv(1024).decode("utf-8")
 
 
         if choicee == '1':
+            public_key = get_public_key_from_db(username)
             file_data = client_socket.recv(1024).decode("utf-8")
             file_name, data = file_data.split(":")
 
+            # Convert the file data (string) to bytes for encryption
+            data_bytes = data.encode("utf-8")
+
+            #Encrypt file data
+            encrypted_data = public_key.encrypt(
+            data_bytes,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+                )
+            )
             print("Filename received.")
-            file = open(file_name, "w")
+            file = open(file_name, "wb")
             client_socket.send("Filename received.".encode("utf-8"))
 
 
             print("File Data received")
-            file.write(data)
+            file.write(encrypted_data)
             client_socket.send("File data received.".encode("utf-8"))
 
             file.close()
