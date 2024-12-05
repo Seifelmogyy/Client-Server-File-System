@@ -2,6 +2,8 @@ import socket
 import ssl
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
 import os
 
 #Client Socket Server
@@ -113,7 +115,8 @@ def main():
             while True:
                 print("1. Upload File")
                 print("2. List Files")
-                print("3. Exit")
+                print("3. Download File")
+                print("4. Exit")
                 choicee = input("Choose an option: ")
                 ssock.send(choicee.encode("utf-8") )
 
@@ -133,16 +136,42 @@ def main():
                     msg = ssock.recv(1024).decode("utf-8")
                     print(f"Server: {msg}")
 
-                    #file.close()
-                    #ssock.close()
 
                 elif choicee == "2":
                     File_list = ssock.recv(1024).decode("utf-8")
                     print(f"The following files are available in your folder: {File_list}")
 
-
-
                 elif choicee == "3":
+                    # Load the private key from the stored file
+                    with open(f"/Users/seifelmougy/Documents/file_server_storage_keys/{username}/{username}_private.pem", "rb") as key_file:
+                        private_key = serialization.load_pem_private_key(
+                        key_file.read(),
+                        password=None,
+                        )
+                    print(private_key)
+
+                    desired_file_name = input("Enter file name: ")
+                    ssock.send(desired_file_name.encode("utf-8") )
+                        # Receive the encrypted data from the server
+                    downloaded_file_data= ssock.recv(1024)
+
+                    
+                    decrypted_data = private_key.decrypt(
+                        downloaded_file_data,
+                        padding.OAEP(
+                            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                            algorithm=hashes.SHA256(),
+                            label=None
+                        )
+                    )
+                    # Save the decrypted file locally
+                    os.chdir("/Users/seifelmougy/Documents")
+                    with open(desired_file_name, "wb") as file:
+                        file.write(decrypted_data)
+
+                    print(f"File '{desired_file_name}' downloaded and decrypted successfully.")                    
+
+                elif choicee == "4":
                     print("Exiting the program.")
                     ssock.close()
                     break

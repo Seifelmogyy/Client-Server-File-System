@@ -150,9 +150,16 @@ def main():
 
             List = str(os.listdir())
             client_socket.send(List.encode("utf-8"))
-
-
+        
         if choicee == '3':
+           desired_file_name = client_socket.recv(1024).decode("utf-8")
+           file_address = f"/Users/seifelmougy/Documents/file_server_storage/{username}/{desired_file_name}"
+           file_to_send = open(file_address, "rb")
+           data_to_send = file_to_send.read()
+           client_socket.send(data_to_send)
+
+
+        if choicee == '4':
             client_socket.close()
             server_socket.close()
 
