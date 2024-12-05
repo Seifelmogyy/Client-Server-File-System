@@ -6,6 +6,7 @@ import os
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
+import hashlib
 
 def main():
 
@@ -89,6 +90,22 @@ def main():
             print(f"Public key for {username} saved to the database.")
         except Exception as e:
             print(f"Error saving public key: {e}")
+
+    def store_file_in_database(username, file_name, file_hash):
+        """
+        Store the file name, username, and file hash in the database.
+        """
+        query = "INSERT INTO files (username, file_name, file_hash) VALUES (%s, %s, %s)"
+        cursor.execute(query, (username, file_name, file_hash))
+        db.commit()
+        print(f"File '{file_name}' with hash '{file_hash}' stored in database for user '{username}'.")
+
+    def fetch_file_hash_from_db(file_name):
+        query = "SELECT file_hash FROM files WHERE file_name = %s"
+        cursor.execute(query, (file_name,))
+        result = cursor.fetchone()
+        file_hash = result[0]
+        return file_hash
     
   
     # Server Socket Initialization and SSL
@@ -131,12 +148,11 @@ def main():
             #Receiving file name and content from client
             file_data = client_socket.recv(1024).decode("utf-8")
             file_name, data = file_data.split(":")
+            #Convert the file data (string) to bytes for encryption
+            data_bytes = data.encode("utf-8")
 
             #Receive File Signature
             signature = client_socket.recv(1024)
-
-            #Convert the file data (string) to bytes for encryption
-            data_bytes = data.encode("utf-8")
 
             # Verify the digital signature using the client's public key
             try:
@@ -157,6 +173,16 @@ def main():
                 client_socket.send(f"Signature verification failed: {str(e)}".encode("utf-8"))
                 print("Signature verification failed.")
 
+            file_hash_received = client_socket.recv(1024).decode("utf-8")
+
+            # Store the file name, username, and hash in the database
+            store_file_in_database(username, file_name, file_hash_received)
+
+            server_file_hash = hashlib.sha256(data_bytes).hexdigest()
+            print(f"Calculated hash: {server_file_hash}")
+            if server_file_hash == file_hash_received:
+                client_socket.send("Hash match confirmed. Proceeding with file encryption.".encode("utf-8"))
+                print("Hash match confirmed. Proceeding with file encryption.")
 
             #Encrypt file data
             encrypted_data = public_key.encrypt(
@@ -189,7 +215,12 @@ def main():
            file_address = f"/Users/seifelmougy/Documents/file_server_storage/{username}/{desired_file_name}"
            file_to_send = open(file_address, "rb")
            data_to_send = file_to_send.read()
+           # Send File hash
+           file_hash_to_send = fetch_file_hash_from_db(desired_file_name)
+           print(f"File Hash to send {file_hash_to_send}")
+
            client_socket.send(data_to_send)
+           client_socket.send(file_hash_to_send.encode("utf-8"))
 
 
         if choicee == '4':

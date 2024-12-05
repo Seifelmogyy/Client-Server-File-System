@@ -5,6 +5,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 import os
+import hashlib
 
 #Client Socket Server
 context = ssl._create_unverified_context(ssl.PROTOCOL_TLS_CLIENT)
@@ -131,6 +132,10 @@ def main():
                     with open(file_address, "rb") as file:  # Open file in binary mode
                         binary_data = file.read()  # Read the file content as bytes
                     
+                    # Calculate the hash value of the file
+                    file_hash = hashlib.sha256(binary_data).hexdigest()
+                    print(f"Calculated hash: {file_hash}")
+
                     # Load the private key from the stored file
                     with open(f"/Users/seifelmougy/Documents/file_server_storage_keys/{username}/{username}_private.pem", "rb") as key_file:
                         private_key = serialization.load_pem_private_key(
@@ -150,8 +155,12 @@ def main():
 
                     file = f"{file_name}:{data}"
 
-                    ssock.send(file.encode("utf-8") )
+                    ssock.send(file.encode("utf-8") ) # Send file data and file name
                     ssock.send(signature)  # Send the signature
+                    ssock.send(file_hash.encode("utf-8"))
+                    msg = ssock.recv(1024).decode("utf-8")
+                    print(f"Server: {msg}")
+
                     msg = ssock.recv(1024).decode("utf-8")
                     print(f"Server: {msg}")
 
@@ -193,8 +202,14 @@ def main():
                     os.chdir(f"/Users/seifelmougy/Documents/file_server_storage_Downloads/{username}")
                     with open(desired_file_name, "wb") as file:
                         file.write(decrypted_data)
+                    with open(desired_file_name, "rb") as file2:
+                        decrypted_file_binary_data = file2.read()  # Read the file content as bytes
 
-                    print(f"File '{desired_file_name}' downloaded and decrypted successfully.")                    
+                    print(f"File '{desired_file_name}' downloaded and decrypted successfully.")   
+                    decrypted_file_hash = hashlib.sha256(decrypted_file_binary_data).hexdigest()
+                    file_hash_received = ssock.recv(1024).decode("utf-8")
+                    if decrypted_file_hash == file_hash_received:
+                        print("Hash match confirmed.")               
 
                 elif choicee == "4":
                     print("Exiting the program.")
