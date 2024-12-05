@@ -56,6 +56,14 @@ def main():
             print(f"Nested directories '{nested_directory}' created successfully.")
         except FileExistsError:
             print(f"One or more directories in '{nested_directory}' already exist.")
+            
+        download_nested_directory = f"/Users/seifelmougy/Documents/file_server_storage_Downloads/{username}"
+
+        try:
+            os.makedirs(download_nested_directory)
+            print(f"Nested directories '{download_nested_directory}' created successfully.")
+        except FileExistsError:
+            print(f"One or more directories in '{download_nested_directory}' already exist.")
 
         """Register a new user with a hashed password."""
         query = "SELECT username FROM users WHERE username = %s"
@@ -110,8 +118,6 @@ def main():
             client_socket.send(response.encode("utf-8"))
             public_key_data = client_socket.recv(2048)  # Adjust size as needed
             public_key = serialization.load_pem_public_key(public_key_data)
-            print(public_key_data)
-            print("Public key received and loaded.")
             save_public_key(username, public_key_data)
 
         # File Transfer
@@ -119,12 +125,38 @@ def main():
 
 
         if choicee == '1':
+            #Loading the public key 
             public_key = get_public_key_from_db(username)
+
+            #Receiving file name and content from client
             file_data = client_socket.recv(1024).decode("utf-8")
             file_name, data = file_data.split(":")
 
-            # Convert the file data (string) to bytes for encryption
+            #Receive File Signature
+            signature = client_socket.recv(1024)
+
+            #Convert the file data (string) to bytes for encryption
             data_bytes = data.encode("utf-8")
+
+            # Verify the digital signature using the client's public key
+            try:
+                public_key.verify(
+                    signature,
+                    data_bytes,
+                    padding.PSS(
+                        mgf=padding.MGF1(hashes.SHA256()),
+                        salt_length=padding.PSS.MAX_LENGTH
+                    ),
+                    hashes.SHA256()
+                )
+                client_socket.send("Signature verification successful.".encode("utf-8"))
+                print("Signature verification Successful.")
+
+            except Exception as e:
+                # If verification fails, send an error message to the client
+                client_socket.send(f"Signature verification failed: {str(e)}".encode("utf-8"))
+                print("Signature verification failed.")
+
 
             #Encrypt file data
             encrypted_data = public_key.encrypt(
@@ -136,6 +168,7 @@ def main():
                 )
             )
             print("Filename received.")
+
             file = open(file_name, "wb")
             client_socket.send("Filename received.".encode("utf-8"))
 

@@ -122,14 +122,39 @@ def main():
 
                 if choicee == "1":
                     file_name = input("Enter file name: ")
-                    file_address=input("enter file path: ")
+                    file_address=input("Enter file path: ")
+                    
+                    #Open File and read data
                     file = open(file_address, "r")
-
                     data = file.read()
+
+                    with open(file_address, "rb") as file:  # Open file in binary mode
+                        binary_data = file.read()  # Read the file content as bytes
+                    
+                    # Load the private key from the stored file
+                    with open(f"/Users/seifelmougy/Documents/file_server_storage_keys/{username}/{username}_private.pem", "rb") as key_file:
+                        private_key = serialization.load_pem_private_key(
+                        key_file.read(),
+                        password=None,
+                        )
+
+                    # Generate a digital signature for the file data
+                    signature = private_key.sign(
+                        binary_data,
+                        padding.PSS(
+                            mgf=padding.MGF1(hashes.SHA256()),
+                            salt_length=padding.PSS.MAX_LENGTH
+                        ),
+                        hashes.SHA256()
+                    )
 
                     file = f"{file_name}:{data}"
 
                     ssock.send(file.encode("utf-8") )
+                    ssock.send(signature)  # Send the signature
+                    msg = ssock.recv(1024).decode("utf-8")
+                    print(f"Server: {msg}")
+
                     msg = ssock.recv(1024).decode("utf-8")
                     print(f"Server: {msg}")
 
@@ -148,11 +173,11 @@ def main():
                         key_file.read(),
                         password=None,
                         )
-                    print(private_key)
 
                     desired_file_name = input("Enter file name: ")
                     ssock.send(desired_file_name.encode("utf-8") )
-                        # Receive the encrypted data from the server
+                    
+                    # Receive the encrypted data from the server
                     downloaded_file_data= ssock.recv(1024)
 
                     
@@ -165,7 +190,7 @@ def main():
                         )
                     )
                     # Save the decrypted file locally
-                    os.chdir("/Users/seifelmougy/Documents")
+                    os.chdir(f"/Users/seifelmougy/Documents/file_server_storage_Downloads/{username}")
                     with open(desired_file_name, "wb") as file:
                         file.write(decrypted_data)
 
