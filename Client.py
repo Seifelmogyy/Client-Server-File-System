@@ -6,6 +6,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 import os
 import hashlib
+import re
 
 #Client Socket Server
 context = ssl._create_unverified_context(ssl.PROTOCOL_TLS_CLIENT)
@@ -54,6 +55,20 @@ def generate_rsa_keys(username):
     print(f"RSA keys saved for {username}: {private_filename}, {public_filename}")
     return public_filename
 
+def validate_password(password):
+    """Validates password to meet the required criteria."""
+    if len(password) < 8:
+        return False
+    if not re.search(r"[A-Z]", password):  # Check for uppercase
+        return False
+    if not re.search(r"[a-z]", password):  # Check for lowercase
+        return False
+    if not re.search(r"[0-9]", password):  # Check for digit
+        return False
+    if not re.search(r"[\W_]", password):  # Check for special character
+        return False
+    return True
+
 
 def main():
         
@@ -69,8 +84,13 @@ def main():
             if choice == "1":
                 print("\n--- Sign Up ---")
                 username = input("Enter a new username: ")
-                password = input("Enter a new password: ")    
-                print("Sign-up successful! You can now log in.\n")
+                while True:
+                    print("\n--- Password must be at least 8 characters long, 1 uppercase, 1 lowercase, 1 digit, and 1 special character ---")
+                    password = input("Enter a new password: ")
+                    if validate_password(password):
+                        break
+                    else:
+                        print("Password must be at least 8 characters long, contain at least one uppercase letter, one lowercase letter, one digit, and one special character. Please try again.")
 
                 # Generate and save RSA keys for the user
                 public_filename = generate_rsa_keys(username)
@@ -84,6 +104,7 @@ def main():
                 print(f"Server: {response}")
 
                 if "successful" in response.lower():
+                    print("Sign-up successful! You can now log in.\n")
                     # Send the public key to the server
                     with open(public_filename, "rb") as public_file:
                         public_key_data = public_file.read()
@@ -209,7 +230,9 @@ def main():
                     decrypted_file_hash = hashlib.sha256(decrypted_file_binary_data).hexdigest()
                     file_hash_received = ssock.recv(1024).decode("utf-8")
                     if decrypted_file_hash == file_hash_received:
-                        print("Hash match confirmed.")               
+                        print("Hash match confirmed.")
+                    else: 
+                        print("Hash match Failed!")               
 
                 elif choicee == "4":
                     print("Exiting the program.")

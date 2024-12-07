@@ -100,9 +100,9 @@ def main():
         db.commit()
         print(f"File '{file_name}' with hash '{file_hash}' stored in database for user '{username}'.")
 
-    def fetch_file_hash_from_db(file_name):
-        query = "SELECT file_hash FROM files WHERE file_name = %s"
-        cursor.execute(query, (file_name,))
+    def fetch_file_hash_from_db(username, file_name):
+        query = "SELECT file_hash FROM files WHERE username = %s AND file_name = %s"
+        cursor.execute(query, (username, file_name,))
         result = cursor.fetchone()
         file_hash = result[0]
         return file_hash
@@ -139,8 +139,7 @@ def main():
 
         # File Transfer
         choicee = client_socket.recv(1024).decode("utf-8")
-
-
+    while True:
         if choicee == '1':
             #Loading the public key 
             public_key = get_public_key_from_db(username)
@@ -148,84 +147,95 @@ def main():
             #Receiving file name and content from client
             file_data = client_socket.recv(1024).decode("utf-8")
             file_name, data = file_data.split(":")
-            #Convert the file data (string) to bytes for encryption
-            data_bytes = data.encode("utf-8")
+                # Path to the user's directory (assuming the directory structure is based on the username)
+            user_directory = f"/Users/seifelmougy/Documents/file_server_storage/{username}"
+            
+            # Check if the file already exists in the user's directory
+            if os.path.exists(os.path.join(user_directory, file_name)):
+                client_socket.send("Error: File with this name already exists.".encode("utf-8"))
+                print(f"File upload rejected: {file_name} already exists for user {username}.")
+            else:
+                #Convert the file data (string) to bytes for encryption
+                data_bytes = data.encode("utf-8")
 
-            #Receive File Signature
-            signature = client_socket.recv(1024)
+                #Receive File Signature
+                signature = client_socket.recv(1024)
 
-            # Verify the digital signature using the client's public key
-            try:
-                public_key.verify(
-                    signature,
-                    data_bytes,
-                    padding.PSS(
-                        mgf=padding.MGF1(hashes.SHA256()),
-                        salt_length=padding.PSS.MAX_LENGTH
-                    ),
-                    hashes.SHA256()
+                # Verify the digital signature using the client's public key
+                try:
+                    public_key.verify(
+                        signature,
+                        data_bytes,
+                        padding.PSS(
+                            mgf=padding.MGF1(hashes.SHA256()),
+                            salt_length=padding.PSS.MAX_LENGTH
+                        ),
+                        hashes.SHA256()
+                    )
+                    client_socket.send("Signature verification successful.".encode("utf-8"))
+                    print("Signature verification Successful.")
+
+                except Exception as e:
+                    # If verification fails, send an error message to the client
+                    client_socket.send(f"Signature verification failed: {str(e)}".encode("utf-8"))
+                    print("Signature verification failed.")
+
+                file_hash_received = client_socket.recv(1024).decode("utf-8")
+
+                # Store the file name, username, and hash in the database
+                store_file_in_database(username, file_name, file_hash_received)
+
+                server_file_hash = hashlib.sha256(data_bytes).hexdigest()
+                print(f"Calculated hash: {server_file_hash}")
+                if server_file_hash == file_hash_received:
+                    client_socket.send("Hash match confirmed. Proceeding with file encryption.".encode("utf-8"))
+                    print("Hash match confirmed. Proceeding with file encryption.")
+
+                #Encrypt file data
+                encrypted_data = public_key.encrypt(
+                data_bytes,
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                    )
                 )
-                client_socket.send("Signature verification successful.".encode("utf-8"))
-                print("Signature verification Successful.")
+                print("Filename received.")
 
-            except Exception as e:
-                # If verification fails, send an error message to the client
-                client_socket.send(f"Signature verification failed: {str(e)}".encode("utf-8"))
-                print("Signature verification failed.")
-
-            file_hash_received = client_socket.recv(1024).decode("utf-8")
-
-            # Store the file name, username, and hash in the database
-            store_file_in_database(username, file_name, file_hash_received)
-
-            server_file_hash = hashlib.sha256(data_bytes).hexdigest()
-            print(f"Calculated hash: {server_file_hash}")
-            if server_file_hash == file_hash_received:
-                client_socket.send("Hash match confirmed. Proceeding with file encryption.".encode("utf-8"))
-                print("Hash match confirmed. Proceeding with file encryption.")
-
-            #Encrypt file data
-            encrypted_data = public_key.encrypt(
-            data_bytes,
-            padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
-                )
-            )
-            print("Filename received.")
-
-            file = open(file_name, "wb")
-            client_socket.send("Filename received.".encode("utf-8"))
+                file = open(file_name, "wb")
+                client_socket.send("Filename received.".encode("utf-8"))
 
 
-            print("File Data received")
-            file.write(encrypted_data)
-            client_socket.send("File data received.".encode("utf-8"))
+                print("File Data received")
+                file.write(encrypted_data)
+                client_socket.send("File data received.".encode("utf-8"))
 
-            file.close()
+                file.close()
 
-        if choicee == '2':
+        elif choicee == '2':
 
             List = str(os.listdir())
             client_socket.send(List.encode("utf-8"))
         
-        if choicee == '3':
+        elif choicee == '3':
            desired_file_name = client_socket.recv(1024).decode("utf-8")
            file_address = f"/Users/seifelmougy/Documents/file_server_storage/{username}/{desired_file_name}"
            file_to_send = open(file_address, "rb")
            data_to_send = file_to_send.read()
            # Send File hash
-           file_hash_to_send = fetch_file_hash_from_db(desired_file_name)
+           file_hash_to_send = fetch_file_hash_from_db(username, desired_file_name)
            print(f"File Hash to send {file_hash_to_send}")
 
            client_socket.send(data_to_send)
            client_socket.send(file_hash_to_send.encode("utf-8"))
 
 
-        if choicee == '4':
+        elif choicee == '4':
+            # Close the client and server sockets when choice is '4'
+            client_socket.send("Closing connection.".encode("utf-8"))
+            print("Connection closing...")
             client_socket.close()
-            server_socket.close()
+            break
 
 
         client_socket.close()
